@@ -1,17 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, reactive, computed } from 'vue';
 import { Modal } from 'flowbite-vue'
+import work from './assets/notifications/work.wav';
+import breake from './assets/notifications/breake.wav';
+import storm from './assets/notifications/storm.wav';
 
-
-const focus = ref({
-  name: 'Focus',
-  src: './assets/icons/ph_brain-fill.svg'
-})
-
-const short_break_info = ref({
-  name: 'Short Break',
-  src: './assets/icons/ph_coffee.svg'
-})
 const isShowModal = ref(false)
 function closeModal() {
   isShowModal.value = false
@@ -23,20 +16,32 @@ function showModal() {
 
 
 const isDark = ref(false)
-const isResume = ref(true)
+const isResume = ref(false)
 const isSound = ref(true)
 const isNotify = ref(true)
 
-const pomodoros = ref(3)
-const short_break = ref(5)
-const long_break = ref(15)
-
-const minutes = ref(25)
+const pomodoros = ref(2)
+const pomodorosRun = ref(0)
+const short_break = ref(4)
+const focus = ref(2)
+const minutes = ref(focus.value)
 const seconds = ref(0)
 const timer = ref({})
 const isTimer = ref(false);
+
+const statusText = ref('Focus')
+
+const setColor = reactive({
+  bg:'#FFF2F2',
+  hover: '#FF4C4CB5',
+  button: '#FF4C4C26',
+  number: '#471515'
+})
+
+
 const start = () =>{
   if(!isTimer.value){
+    statusText.value == 'Focus' ? minutes.value = focus.value : minutes.value = short_break.value
       if(minutes.value != 0 || seconds.value != 0){
           isTimer.value=true;
           timer.value = setInterval(()=>{
@@ -46,7 +51,19 @@ const start = () =>{
               if(minutes.value === 0 && seconds.value === 0){
                 clearInterval(timer.value);
                 isTimer.value=false;
-              
+                if(statusText.value == 'Focus'){
+                  pomodorosRun.value ++
+                }
+                if(pomodorosRun.value != pomodoros.value){
+                  checkStatus()
+                }
+                else{
+                  const sound = document.querySelector('#workNotify')
+                  isNotify.value ? sound.play() : ''
+                  pomodorosRun.value = 0
+                  pomodorosNotify()
+                }
+
               }
               
               if(seconds.value == -1){
@@ -65,20 +82,107 @@ const start = () =>{
   
 }
 
+const refresh = () => {
+  if(statusText.value == 'Focus'){
+    minutes.value = focus.value;      
+  }else{
+    minutes.value = short_break.value;
+  }
+}
 
 
-onMounted(()=>{
+const checkStatus = () => {
+  if(statusText.value == 'Focus'){
+      const sound = document.querySelector('#workNotify')
+      isNotify.value ? sound.play() : breakNotification()
+      minutes.value = short_break.value;
+      statusText.value = 'Break'
+      setColor.bg = '#F2FFF5'
+      setColor.hover = '#4DDA6E9E'
+      setColor.button = '#4DDA6E26'
+      setColor.number = '#14401D'
+      if(isResume.value){
+        setTimeout(()=>{
+          start()
+        }, 2500)
+      }
+      return
+    }else{
+      const sound = document.querySelector('#breakeNotify')
+      isNotify.value ? sound.play() : workNotification()
+      minutes.value = focus.value;
+      statusText.value = 'Focus'
+      setColor.bg = '#FFF2F2'
+      setColor.hover = '#FF4C4CB5'
+      setColor.button = '#FF4C4C26'
+      setColor.number = '#471515'
+      if(isResume.value){
+        setTimeout(()=>{
+          start()
+        }, 2500)
+      }
+      return
+    }
+}
+
+const refreshButton = () =>{
+  if(isTimer.value){
+    start()
+    seconds.value=0
+    refresh()
+  }
+  else{
+    seconds.value = 0
+    refresh()
+  }
+}
+
+const next = () =>{
+  if(isTimer.value){
+    start()
+    seconds.value=0
+    checkStatus()
+  }
+  else{
+    seconds.value = 0
+    checkStatus()
+  }
+}
 
 
-})
+const pomodorosNotify = () => {
+  ElNotification({
+    title: 'Excellent',
+    message: `You have worked ${pomodoros.value} pomodoros`,
+    type: 'success',
+  })
+}
+
+const workNotification = () => {
+  ElNotification({
+    title: 'Work Time',
+    message: `It is time to work buddy`,
+    type: 'info',
+  })
+}
+
+const breakNotification = () => {
+  ElNotification({
+    title: 'Break Time',
+    message: `Take a break you deserved it !`,
+    type: 'success',
+  })
+}
 </script>
 
 <template>
 
 
-
+<div class="reletive">
+    
+  
   <!-- ------------------------Modal-------------------------------------------- -->
-  <Modal size="md" v-if="isShowModal" @close="closeModal">
+   <Modal size="md" v-if="isShowModal" @close="closeModal" >
       <template #header>
         <div class="flex items-center text-lg font-bold">
           Settings
@@ -94,19 +198,15 @@ onMounted(()=>{
 
           <div class="flex items-center justify-between">
             <p>Focus length</p>
-            <el-input-number v-model="minutes" :min="0" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input" />
+            <el-input-number v-model="focus" :min="0" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input " />
           </div>
           <div class="flex items-center justify-between">
-            <p>Pomodoros until long break</p>
-            <el-input-number v-model="pomodoros" :min="0" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input" />
+            <p>Pomodoros</p>
+            <el-input-number v-model="pomodoros" :min="1" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input" />
           </div>
           <div class="flex items-center justify-between">
             <p>Short break length</p>
             <el-input-number v-model="short_break" :min="0" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input" />
-          </div>
-          <div class="flex items-center justify-between">
-            <p>Long break length</p>
-            <el-input-number v-model="long_break" :min="0" :max="60" size="small" controls-position="right" @change="handleChange" class="number_input" />
           </div>
 
           <div class="flex items-center justify-between">
@@ -126,16 +226,21 @@ onMounted(()=>{
       </template>
       
     </Modal>
+ 
   <!-- ------------------------Modal END-------------------------------------------- -->
-  <div class="wrapper w-full min-h-screen bg-[#F2FFF5]" :class="isDark ? 'dark' : ''">
-    <div class="container grid place-items-center h-screen mx-auto">
-
+  <div class="wrapper w-full min-h-screen" :class="isDark ? 'dark' : ''" >
+  <audio :src="work" id="workNotify" class="w-0 h-0 overflow-hidden" controls></audio>
+  <audio :src="breake" id="breakeNotify" class="w-0 h-0 overflow-hidden" controls></audio>
+  <audio :src="storm" id="storm" class="w-0 h-0 overflow-hidden"  controls></audio>
+    <div class="container relative grid place-items-center h-screen mx-auto">
+  
+      <i @click="showModal" class='bx bx-cog absolute right-2 top-2 text-2xl'></i>
       <div class="timer">
-
-        <div class="status dark2">
-          <img v-if="!isDark" src="./assets/icons/ph_coffee.svg" alt="">
-          <img v-else src="./assets/icons/ph_coffee_dark.svg" alt="">
-          STATUS
+        <div class="status">
+          
+          <i v-if="statusText == 'Break'" class='bx bx-coffee text-3xl' :class="isDark ? 'text-[#F2FFF5]' : ''"></i>
+          <i v-else class='bx bx-brain text-3xl' :class="isDark ? 'text-[#F2FFF5]' : ''"></i>
+          <p class="text-xl"> {{ statusText }}</p>
         </div>
 
         <div class="numbers ">
@@ -146,19 +251,25 @@ onMounted(()=>{
         </div>
 
         <div class="controls flex gap-3 text-4xl">
-          <button @click="showModal" class="p-6 bg-[#4DDA6E26] rounded-[24px]"><i class='bx bx-dots-horizontal-rounded'></i></button>
-          <button @click="start" class="p-6 bg-[#4DDA6E26] rounded-[24px]"><i v-show="!isTimer" class='bx bx-play'></i><i v-show="isTimer" class='bx bx-pause'></i></button>
-          <button class="p-6 bg-[#4DDA6E26] rounded-[24px]"><i class='bx bx-fast-forward'></i></button>
+          <button @click="refreshButton" class="p-6 rounded-[24px]"><i class='bx bx-refresh'></i></button>
+          <button @click="start" class="p-6  rounded-[24px]"><i v-show="!isTimer" class='bx bx-play'></i><i v-show="isTimer" class='bx bx-pause'></i></button>
+          <button @click="next" class="p-6 rounded-[24px]"><i class='bx bx-fast-forward'></i></button>
         </div>
 
       </div>
     </div>
     
   </div>
+</div>
+
+ 
 </template>
 
 <style scoped>
 
+  .wrapper{
+    background-color: v-bind('setColor.bg');
+  }
   .timer{
     display: flex;
     flex-direction: column;
@@ -172,15 +283,16 @@ onMounted(()=>{
   }
   .controls button {
     transition: all 0.3s ease;
+    background-color: v-bind('setColor.button');
 
   }
 
   .controls button:focus {
-    background-color: #4DDA6E9E;
+    background-color: v-bind('setColor.button');
     font-size: 48px;
   }
   .controls button:hover {
-    background-color: #4DDA6E9E;
+    background-color: v-bind('setColor.hover');
   }
 
   .numbers{
@@ -190,25 +302,28 @@ onMounted(()=>{
     font-size:256px;
     line-height: 217px;
     font-weight: 800;
-    color: #14401D;
+    color: v-bind('setColor.number');
     
   }
 
   .status{
-    width: 197px;
+    /* width: 197px; */
+    padding: 5px 18px;
     height: 48px;
-    border: 2px solid #14401D;
+    border: 2px solid;
+    border-color: v-bind('setColor.number');
     border-radius: 48px;
     display: flex;
     justify-content:center;
     align-items: center;
     gap: 20px;
-    background-color: #4DDA6E26;
+    background-color: v-bind('setColor.button');
   }
 
   .number_input{
     scale: 1.2;
     width: 70px;
+    
   }
 
   .dark{
@@ -221,7 +336,4 @@ onMounted(()=>{
     /* border:  !important; */
   }
 
-  /* .darkicon{
-    color: #F2FFF5;
-  } */
 </style>
