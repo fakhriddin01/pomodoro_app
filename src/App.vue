@@ -73,7 +73,7 @@ const start = () =>{
             }
           
         
-        }, 100)
+        }, 1000)
       }   
   }else{
     clearInterval(timer.value)
